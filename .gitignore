@@ -1,0 +1,6 @@
+.vs/*
+*.vs
+AutoReloadPlus/bin/*
+AutoReloadPlus/lib/*
+AutoReloadPlus/obj/*
+/AutoReloadPlus/GameFolder.props
