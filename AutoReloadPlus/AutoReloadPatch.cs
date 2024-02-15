@@ -4,6 +4,7 @@ using System.Collections;
 using CollectionExtensions = BepInEx.Unity.IL2CPP.Utils.Collections.CollectionExtensions;
 using UnityEngine;
 using AutoReloadPlus.Utils;
+using Player;
 
 namespace AutoReloadPlus
 {
@@ -24,7 +25,10 @@ namespace AutoReloadPlus
         {
             if (cachedArchetype == null || !cachedArchetype.m_weapon.m_inventory.CanReloadCurrent()) return false;
 
-            if (emptyClicks >= Configuration.clicksToReload && CanCountClicks()) return true;
+            if (Configuration.autoReloadAimingInstant && (PlayerLocomotion.AimToggleLock || InputMapper.GetButtonKeyMouse(InputAction.Aim, eFocusState.FPS)))
+                return true;
+            if (emptyClicks >= Configuration.clicksToReload && CanCountClicks())
+                return true;
             
             if (haltAutoReloads) return false;
 
@@ -78,9 +82,14 @@ namespace AutoReloadPlus
         [HarmonyPostfix]
         private static void StartUpdateRoutine(BulletWeaponArchetype __instance)
         {
+            if (__instance.m_owner == null || !__instance.m_owner.IsLocallyOwned) return;
+
             cachedArchetype = __instance;
             if (autoReloadRoutine != null)
+            {
+                ARPLogger.Warning("OnWield called, but a coroutine still exists.");
                 Reset();
+            }
             else
                 autoReloadRoutine = CoroutineManager.StartCoroutine(CollectionExtensions.WrapToIl2Cpp(UpdateAutoReload()));
         }
@@ -88,8 +97,10 @@ namespace AutoReloadPlus
         [HarmonyPatch(typeof(BulletWeaponArchetype), nameof(BulletWeaponArchetype.OnUnWield))]
         [HarmonyWrapSafe]
         [HarmonyPostfix]
-        private static void StopUpdateRoutine()
+        private static void StopUpdateRoutine(BulletWeaponArchetype __instance)
         {
+            if (__instance.m_owner == null || !__instance.m_owner.IsLocallyOwned) return;
+
             cachedArchetype = null;
             if (autoReloadRoutine != null) 
                 CoroutineManager.StopCoroutine(autoReloadRoutine);
@@ -101,6 +112,11 @@ namespace AutoReloadPlus
             float delta;
             float lastUpdateTime = Clock.Time;
             bool clickSoundTriggered = false; // Avoid double-playing the first "out of ammo" sound. Won't work past that, but too much effort to fix any more.
+            
+            heldEmptyTimer = 0f;
+            emptyTimer = 0f;
+            emptyClicks = 0;
+            emptyShotTimer = 0f;
 
             while (true)
             {
@@ -108,18 +124,23 @@ namespace AutoReloadPlus
                 delta = Clock.Time - lastUpdateTime;
                 lastUpdateTime = Clock.Time;
 
-                if (cachedArchetype == null || cachedArchetype.m_owner == null)
+                if (cachedArchetype == null)
                 {
+                    ARPLogger.Log("AutoReload coroutine has no cached archetype (OnUnWield was not called). Culling coroutine.");
+
                     autoReloadRoutine = null;
                     Reset();
                     yield break;
                 }
 
-                if (cachedArchetype.m_clip > 0 || cachedArchetype.m_weapon.IsReloading)
+                if (cachedArchetype.m_weapon.IsReloading)
                 {
                     Reset();
                     continue;
                 }
+
+                if (cachedArchetype.m_clip > 0)
+                    continue;
 
                 // --------------- Gun is out of ammo ---------------
 

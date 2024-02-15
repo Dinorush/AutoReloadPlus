@@ -9,13 +9,14 @@ namespace AutoReloadPlus
     {
         public static int clicksToReload = 1;
         public static bool clicksBypassDelay = true;
-        public static bool sprintHaltsReload = true;
+        public static bool autoReloadAimingInstant = false;
+        public static bool sprintHaltsReload = false;
 
-        public static float autoReloadDelayHoldAuto = 0.4f;
-        public static float autoReloadDelayAuto = 1f;
+        public static float autoReloadDelayHoldAuto = -1;
+        public static float autoReloadDelayAuto = 2f;
         public static bool autoReloadBypassDelayAuto = true;
 
-        public static float autoReloadDelaySemi = 0.4f;
+        public static float autoReloadDelaySemi = 2f;
         public static bool autoReloadBypassDelaySemi = true;
 
         private static ConfigFile configFile;
@@ -34,6 +35,7 @@ namespace AutoReloadPlus
             string section = "Base Settings";
             clicksToReload = (int)configFile[section, "Clicks to Reload"].BoxedValue;
             clicksBypassDelay = (bool)configFile[section, "Clicks Bypass Cooldown"].BoxedValue;
+            autoReloadAimingInstant = (bool)configFile[section, "Aim Triggers Auto Reload"].BoxedValue;
             sprintHaltsReload = (bool)configFile[section, "Sprint Halts Auto Reload"].BoxedValue;
 
             section = "Full-Auto Weapons";
@@ -51,7 +53,8 @@ namespace AutoReloadPlus
             string section = "Base Settings";
             clicksToReload = config.Bind(section, "Clicks to Reload", clicksToReload, "The number of clicks required to trigger a reload while out of ammo.\nThe vanilla Auto Reload feature requires two clicks. Consider disabling it if setting this value above two.\nA value of 0 or less will reload immediately.").Value;
             clicksBypassDelay = config.Bind(section, "Clicks Bypass Cooldown", clicksBypassDelay, "Clicking will count towards a reload without waiting for shot cooldown.\nThe vanilla Auto Reload feature waits for this cooldown, although it can be bypassed by reloading manually.").Value;
-            sprintHaltsReload = config.Bind(section, "Sprint Halts Auto Reload", sprintHaltsReload, "If a sprint is performed, Auto Reload Delays will halt until the next reload.\nIf disabled, Auto Reload Delays will reset their timers and continue after the sprint has ended.").Value;
+            autoReloadAimingInstant = config.Bind(section, "Aim Triggers Auto Reload", autoReloadAimingInstant, "Aiming down sights will instantly trigger a reload when out of ammo.").Value;
+            sprintHaltsReload = config.Bind(section, "Sprint Halts Auto Reload", sprintHaltsReload, "If a sprint is performed while out of ammo, Auto Reload Delays will halt until the next reload.\nIf disabled, Auto Reload Delays will reset their timers and continue after the sprint has ended.").Value;
 
             section = "Full-Auto Weapons";
             autoReloadDelayHoldAuto = config.Bind(section, "Held Auto Reload Delay", autoReloadDelayHoldAuto, "Time in seconds before an automatic reload occurs when out of ammo and holding down the trigger.\nSetting to a value less than 0 disables this.").Value;
