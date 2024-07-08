@@ -10,38 +10,40 @@ namespace AutoReloadPlus
 {
     internal static class AutoReloadPatch
     {
-        private static BulletWeaponArchetype? cachedArchetype;
-        private static Coroutine? autoReloadRoutine = null;
-        private static bool haltAutoReloads = false;
-        private static int emptyClicks = 0;
-        private static float heldEmptyTimer = 0f;
-        private static float emptyTimer = 0f;
+        private static BulletWeaponArchetype? _cachedArchetype;
+        private static IInteractable? _cachedInteract;
+        private static Interact_Timed? _cachedInteractTimed;
+        private static Coroutine? _autoReloadRoutine = null;
+        private static bool _haltAutoReloads = false;
+        private static int _emptyClicks = 0;
+        private static float _heldEmptyTimer = 0f;
+        private static float _emptyTimer = 0f;
         
         // m_nextShotTimer is used on auto weapons to manage shot cooldown... but also to manage out of ammo clicks with no variable to know which!
         // Using this instead to track the next shot timer when the magazine was emptied so we can properly account for shot cooldown on autos.
-        private static float emptyShotTimer = 0f;
+        private static float _emptyShotTimer = 0f;
 
         private static bool ShouldTriggerReload()
         {
-            if (cachedArchetype == null || !cachedArchetype.m_weapon.m_inventory.CanReloadCurrent()) return false;
+            if (_cachedArchetype == null || !_cachedArchetype.m_weapon.m_inventory.CanReloadCurrent()) return false;
 
-            if (Configuration.autoReloadAimingInstant && (PlayerLocomotion.AimToggleLock || InputMapper.GetButtonKeyMouse(InputAction.Aim, eFocusState.FPS)))
+            if (Configuration.autoReloadAimingInstant && (PlayerLocomotion.AimToggleLock || InputMapper.GetButton.Invoke(InputAction.Aim, eFocusState.FPS)))
                 return true;
-            if (emptyClicks >= Configuration.clicksToReload && CanCountClicks())
+            if (_emptyClicks >= Configuration.clicksToReload && CanCountClicks())
                 return true;
             
-            if (haltAutoReloads) return false;
+            if (_haltAutoReloads) return false;
 
             if (CanTimeAutoReloads())
             {
-                if (cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
+                if (_cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
                 {
-                    if (Configuration.autoReloadDelayHoldAuto >= 0f && heldEmptyTimer >= Configuration.autoReloadDelayHoldAuto) return true;
-                    if (Configuration.autoReloadDelayAuto >= 0f && emptyTimer >= Configuration.autoReloadDelayAuto) return true;
+                    if (Configuration.autoReloadDelayHoldAuto >= 0f && _heldEmptyTimer >= Configuration.autoReloadDelayHoldAuto) return true;
+                    if (Configuration.autoReloadDelayAuto >= 0f && _emptyTimer >= Configuration.autoReloadDelayAuto) return true;
                 }
                 else
                 {
-                    if (Configuration.autoReloadDelaySemi >= 0f && emptyTimer >= Configuration.autoReloadDelaySemi) return true;
+                    if (Configuration.autoReloadDelaySemi >= 0f && _emptyTimer >= Configuration.autoReloadDelaySemi) return true;
                 }
             }
 
@@ -50,31 +52,31 @@ namespace AutoReloadPlus
 
         private static bool CanCountClicks()
         {
-            if (cachedArchetype == null) return false;
+            if (_cachedArchetype == null) return false;
 
-            if (cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
-                return Configuration.autoReloadBypassDelayAuto || (Clock.Time > cachedArchetype.m_nextBurstTimer && Clock.Time > emptyShotTimer);
+            if (_cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
+                return Configuration.autoReloadBypassDelayAuto || (Clock.Time > _cachedArchetype.m_nextBurstTimer && Clock.Time > _emptyShotTimer);
             else
-                return Configuration.clicksBypassDelay || Clock.Time > cachedArchetype.m_nextBurstTimer;
+                return Configuration.clicksBypassDelay || Clock.Time > _cachedArchetype.m_nextBurstTimer;
         }
 
         private static bool CanTimeAutoReloads()
         {
-            if (cachedArchetype == null) return false;
+            if (_cachedArchetype == null) return false;
 
-            if (cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
-                return Configuration.autoReloadBypassDelayAuto || (Clock.Time > cachedArchetype.m_nextBurstTimer && Clock.Time > emptyShotTimer);
+            if (_cachedArchetype.m_archetypeData.FireMode == eWeaponFireMode.Auto)
+                return Configuration.autoReloadBypassDelayAuto || (Clock.Time > _cachedArchetype.m_nextBurstTimer && Clock.Time > _emptyShotTimer);
             else
-                return Configuration.autoReloadBypassDelaySemi || Clock.Time > cachedArchetype.m_nextBurstTimer;
+                return Configuration.autoReloadBypassDelaySemi || Clock.Time > _cachedArchetype.m_nextBurstTimer;
         }
 
         private static void Reset()
         {
-            haltAutoReloads = false;
-            heldEmptyTimer = 0f;
-            emptyTimer = 0f;
-            emptyClicks = 0;
-            emptyShotTimer = 0f;
+            _haltAutoReloads = false;
+            _heldEmptyTimer = 0f;
+            _emptyTimer = 0f;
+            _emptyClicks = 0;
+            _emptyShotTimer = 0f;
         }
 
         [HarmonyPatch(typeof(BulletWeaponArchetype), nameof(BulletWeaponArchetype.OnWield))]
@@ -84,14 +86,14 @@ namespace AutoReloadPlus
         {
             if (__instance.m_owner == null || !__instance.m_owner.IsLocallyOwned) return;
 
-            cachedArchetype = __instance;
-            if (autoReloadRoutine != null)
+            _cachedArchetype = __instance;
+            if (_autoReloadRoutine != null)
             {
                 ARPLogger.Warning("OnWield called, but a coroutine still exists.");
                 Reset();
             }
             else
-                autoReloadRoutine = CoroutineManager.StartCoroutine(CollectionExtensions.WrapToIl2Cpp(UpdateAutoReload()));
+                _autoReloadRoutine = CoroutineManager.StartCoroutine(CollectionExtensions.WrapToIl2Cpp(UpdateAutoReload()));
         }
 
         [HarmonyPatch(typeof(BulletWeaponArchetype), nameof(BulletWeaponArchetype.OnUnWield))]
@@ -101,10 +103,10 @@ namespace AutoReloadPlus
         {
             if (__instance.m_owner == null || !__instance.m_owner.IsLocallyOwned) return;
 
-            cachedArchetype = null;
-            if (autoReloadRoutine != null) 
-                CoroutineManager.StopCoroutine(autoReloadRoutine);
-            autoReloadRoutine = null;
+            _cachedArchetype = null;
+            if (_autoReloadRoutine != null) 
+                CoroutineManager.StopCoroutine(_autoReloadRoutine);
+            _autoReloadRoutine = null;
         }
 
         private static IEnumerator UpdateAutoReload()
@@ -113,10 +115,10 @@ namespace AutoReloadPlus
             float lastUpdateTime = Clock.Time;
             bool clickSoundTriggered = false; // Avoid double-playing the first "out of ammo" sound. Won't work past that, but too much effort to fix any more.
             
-            heldEmptyTimer = 0f;
-            emptyTimer = 0f;
-            emptyClicks = 0;
-            emptyShotTimer = 0f;
+            _heldEmptyTimer = 0f;
+            _emptyTimer = 0f;
+            _emptyClicks = 0;
+            _emptyShotTimer = 0f;
 
             while (true)
             {
@@ -124,57 +126,71 @@ namespace AutoReloadPlus
                 delta = Clock.Time - lastUpdateTime;
                 lastUpdateTime = Clock.Time;
 
-                if (cachedArchetype == null)
+                if (_cachedArchetype == null || _cachedArchetype.m_weapon == null)
                 {
                     ARPLogger.Log("AutoReload coroutine has no cached archetype (OnUnWield was not called). Culling coroutine.");
 
-                    autoReloadRoutine = null;
+                    _autoReloadRoutine = null;
                     Reset();
                     yield break;
                 }
 
-                if (cachedArchetype.m_weapon.IsReloading)
+                // Reload may be triggered manually or by in-game Auto Reload too, so just reseting when the gun is reloading by any means.
+                if (_cachedArchetype.m_weapon.IsReloading)
                 {
                     Reset();
                     continue;
                 }
 
-                if (cachedArchetype.m_clip > 0)
+                if (_cachedArchetype.m_clip > 0)
                     continue;
 
                 // --------------- Gun is out of ammo ---------------
 
-                if (emptyShotTimer == 0f)
-                    emptyShotTimer = cachedArchetype.m_nextShotTimer;
+                if (_emptyShotTimer == 0f)
+                    _emptyShotTimer = _cachedArchetype.m_nextShotTimer;
 
-                if (cachedArchetype.m_owner.Locomotion.IsRunning)
+                if (_cachedArchetype.m_owner.Locomotion.IsRunning)
                 {
-                    haltAutoReloads = Configuration.sprintHaltsReload;
-                    heldEmptyTimer = 0f;
-                    emptyTimer = 0f;
+                    _haltAutoReloads |= Configuration.sprintHaltsReload;
+                    _heldEmptyTimer = 0f;
+                    _emptyTimer = 0f;
                     continue;
                 }
 
-                if (cachedArchetype.m_weapon.FireButtonPressed && CanCountClicks())
+                if (_cachedArchetype.m_owner.Interaction.m_bestSelectedInteract != _cachedInteract)
                 {
-                    if ((clickSoundTriggered || !cachedArchetype.m_clickTriggered) && emptyClicks < Configuration.clicksToReload - 1)
-                        cachedArchetype.m_weapon.TriggerAudio(cachedArchetype.m_weapon.AudioData.eventClick);
-                    clickSoundTriggered = cachedArchetype.m_clickTriggered;
-                    emptyClicks++;
+                    _cachedInteract = _cachedArchetype.m_owner.Interaction.m_bestSelectedInteract;
+                    _cachedInteractTimed = _cachedInteract.TryCast<Interact_Timed>();
                 }
 
-                if (!haltAutoReloads && CanTimeAutoReloads())
+                if (_cachedInteractTimed != null && _cachedInteractTimed.TimerIsActive)
                 {
-                    emptyTimer += delta;
+                    _haltAutoReloads |= Configuration.interactHaltsReload;
+                    _heldEmptyTimer = 0f;
+                    _emptyTimer = 0f;
+                    continue;
+                }
 
-                    if (cachedArchetype.m_weapon.FireButton || InputMapper.HasGamepad && InputMapper.GetAxisKeyMouseGamepad(InputAction.GamepadFireTrigger, cachedArchetype.m_owner.InputFilter) > 0f)
-                        heldEmptyTimer += delta;
+                if (_cachedArchetype.m_weapon.FireButtonPressed && CanCountClicks())
+                {
+                    if ((clickSoundTriggered || !_cachedArchetype.m_clickTriggered) && _emptyClicks <= Configuration.clicksToReload)
+                        _cachedArchetype.m_weapon.TriggerAudio(_cachedArchetype.m_weapon.AudioData.eventClick);
+                    clickSoundTriggered = _cachedArchetype.m_clickTriggered;
+                    _emptyClicks++;
+                }
+
+                if (!_haltAutoReloads && CanTimeAutoReloads())
+                {
+                    _emptyTimer += delta;
+
+                    if (_cachedArchetype.m_weapon.FireButton || InputMapper.HasGamepad && InputMapper.GetAxisKeyMouseGamepad(InputAction.GamepadFireTrigger, _cachedArchetype.m_owner.InputFilter) > 0f)
+                        _heldEmptyTimer += delta;
                 }
 
                 if (ShouldTriggerReload())
                 {
-                    // Reload may be triggered manually or by in-game Auto Reload too, so just reseting when the gun is reloading by any means.
-                    cachedArchetype.m_weapon.m_inventory.TriggerReload();
+                    _cachedArchetype.m_weapon.m_inventory.TriggerReload();
                     clickSoundTriggered = false;
                 }
             }
