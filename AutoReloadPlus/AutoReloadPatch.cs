@@ -119,6 +119,7 @@ namespace AutoReloadPlus
             _emptyTimer = 0f;
             _emptyClicks = 0;
             _emptyShotTimer = 0f;
+            uint archID = _cachedArchetype!.m_archetypeData.persistentID;
 
             while (true)
             {
@@ -134,6 +135,10 @@ namespace AutoReloadPlus
                     Reset();
                     yield break;
                 }
+
+                // Compatibility with EWC changing archetype
+                if (archID != _cachedArchetype.m_weapon.ArchetypeID)
+                    _cachedArchetype = _cachedArchetype.m_weapon.m_archeType;
 
                 // Reload may be triggered manually or by in-game Auto Reload too, so just reseting when the gun is reloading by any means.
                 if (_cachedArchetype.m_weapon.IsReloading)
