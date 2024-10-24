@@ -138,7 +138,10 @@ namespace AutoReloadPlus
 
                 // Compatibility with EWC changing archetype
                 if (archID != _cachedArchetype.m_weapon.ArchetypeID)
+                {
                     _cachedArchetype = _cachedArchetype.m_weapon.m_archeType;
+                    archID = _cachedArchetype.m_weapon.ArchetypeID;
+                }
 
                 // Reload may be triggered manually or by in-game Auto Reload too, so just reseting when the gun is reloading by any means.
                 if (_cachedArchetype.m_weapon.IsReloading)
