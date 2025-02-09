@@ -136,15 +136,16 @@ namespace AutoReloadPlus
                     yield break;
                 }
 
+                BulletWeapon weapon = _cachedArchetype.m_weapon;
                 // Compatibility with EWC changing archetype
-                if (archID != _cachedArchetype.m_weapon.ArchetypeID)
+                if (archID != weapon.ArchetypeID)
                 {
-                    _cachedArchetype = _cachedArchetype.m_weapon.m_archeType;
-                    archID = _cachedArchetype.m_weapon.ArchetypeID;
+                    _cachedArchetype = weapon.m_archeType;
+                    archID = weapon.ArchetypeID;
                 }
 
                 // Reload may be triggered manually or by in-game Auto Reload too, so just reseting when the gun is reloading by any means.
-                if (_cachedArchetype.m_weapon.IsReloading)
+                if (weapon.IsReloading)
                 {
                     Reset();
                     continue;
@@ -158,7 +159,8 @@ namespace AutoReloadPlus
                 if (_emptyShotTimer == 0f)
                     _emptyShotTimer = _cachedArchetype.m_nextShotTimer;
 
-                if (_cachedArchetype.m_owner.Locomotion.IsRunning)
+                PlayerAgent owner = _cachedArchetype.m_owner;
+                if (owner.Locomotion.IsRunning)
                 {
                     _haltAutoReloads |= Configuration.sprintHaltsReload;
                     _heldEmptyTimer = 0f;
@@ -166,10 +168,10 @@ namespace AutoReloadPlus
                     continue;
                 }
 
-                if (_cachedArchetype.m_owner.Interaction.m_bestSelectedInteract != _cachedInteract)
+                if (owner.Interaction.m_bestSelectedInteract != _cachedInteract)
                 {
                     _cachedInteract = _cachedArchetype.m_owner.Interaction.m_bestSelectedInteract;
-                    _cachedInteractTimed = _cachedInteract.TryCast<Interact_Timed>();
+                    _cachedInteractTimed = _cachedInteract?.TryCast<Interact_Timed>();
                 }
 
                 if (_cachedInteractTimed != null && _cachedInteractTimed.TimerIsActive)
@@ -180,10 +182,10 @@ namespace AutoReloadPlus
                     continue;
                 }
 
-                if (_cachedArchetype.m_weapon.FireButtonPressed && CanCountClicks())
+                if (weapon.FireButtonPressed && CanCountClicks())
                 {
                     if ((clickSoundTriggered || !_cachedArchetype.m_clickTriggered) && _emptyClicks <= Configuration.clicksToReload)
-                        _cachedArchetype.m_weapon.TriggerAudio(_cachedArchetype.m_weapon.AudioData.eventClick);
+                        weapon.TriggerAudio(weapon.AudioData.eventClick);
                     clickSoundTriggered = _cachedArchetype.m_clickTriggered;
                     _emptyClicks++;
                 }
@@ -192,13 +194,13 @@ namespace AutoReloadPlus
                 {
                     _emptyTimer += delta;
 
-                    if (_cachedArchetype.m_weapon.FireButton || InputMapper.HasGamepad && InputMapper.GetAxisKeyMouseGamepad(InputAction.GamepadFireTrigger, _cachedArchetype.m_owner.InputFilter) > 0f)
+                    if (weapon.FireButton || InputMapper.HasGamepad && InputMapper.GetAxisKeyMouseGamepad(InputAction.GamepadFireTrigger, owner.InputFilter) > 0f)
                         _heldEmptyTimer += delta;
                 }
 
                 if (ShouldTriggerReload())
                 {
-                    _cachedArchetype.m_weapon.m_inventory.TriggerReload();
+                    weapon.m_inventory.TriggerReload();
                     clickSoundTriggered = false;
                 }
             }
